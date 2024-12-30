@@ -27,7 +27,6 @@ resource "aws_instance" "web" {
   count = 2 
 
   availability_zone = element(data.aws_availability_zones.available.names, count.index) 
-  # No need to change unless you want specific AZs.
 
   security_groups = [aws_security_group.http.name]
 
