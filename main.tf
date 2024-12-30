@@ -1,66 +1,51 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
 provider "aws" {
-  region = "us-east-1"
+  region     = "us-east-1"
+  access_key = ""
+  secret_key = ""
+}
+// To Generate Private Key
+resource "tls_private_key" "rsa_4096" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+variable "key_name" {
+  
 }
 
-resource "aws_security_group" "http_sg" {
-  name        = "http-sg"
-  description = "Allow HTTP traffic"
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+// Create Key Pair for Connecting EC2 via SSH
+resource "aws_key_pair" "key_pair" {
+  key_name   = var.key_name
+  public_key = tls_private_key.rsa_4096.public_key_openssh
 }
 
-resource "aws_instance" "web" {
-  ami           = "ami-01816d07b1128cd2d"
-  instance_type = "t2.micro"
-  key_name      = "murli1"
-  
-  security_groups = [aws_security_group.http_sg.name]
-  
-  availability_zone = "us-east-1a"
-  
+// Save PEM file locally
+resource "local_file" "private_key" {
+  content  = tls_private_key.rsa_4096.private_key_pem
+  filename = var.key_name
+}
+
+# Create a security group
+
+resource "aws_instance" "public_instance" {
+  ami                    = "ami-05b4ded3ceb71e470"
+  instance_type          = "t2.micro"
+  key_name               = aws_key_pair.key_pair.key_name
+  // vpc_security_group_ids = [aws_security_group.sg_ec2.id]
+
   tags = {
-    Name = "WebServer"
+    Name = "public_instance"
   }
 
-  user_data = <<-EOF
-              #!/bin/bash
-              yum update -y
-              yum install -y httpd
-              systemctl start httpd
-              systemctl enable httpd
-              EOF
-}
-
-resource "aws_instance" "web_2" {
-  ami           = "ami-01816d07b1128cd2d"
-  instance_type = "t2.micro"
-  key_name      = "murli1"
-  
-  security_groups = [aws_security_group.http_sg.name]
-  
-  availability_zone = "us-east-1b"
-  
-  tags = {
-    Name = "WebServer2"
-  }
-
-  user_data = <<-EOF
-              #!/bin/bash
-              yum update -y
-              yum install -y httpd
-              systemctl start httpd
-              systemctl enable httpd
-              EOF
+  //root_block_device {
+     //volume_size = 30
+    //volume_type = "gp2"
+ // }
 }
